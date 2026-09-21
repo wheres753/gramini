@@ -36,6 +36,48 @@ Spec: [graminiSPEC.md](graminiSPEC.md).
   DOM in phase 2 — the language picker and "from Meta" footer also disappear on
   the landing page, cause not yet identified.
 
+## Phase 2 — filters (2026-09-21)
+
+Structure observed (desktop Chrome, logged in; phone via the DEBUG probe):
+
+- `?variant=following` is honoured on both layouts; the header then shows a
+  "Following" title inside `a[href="/"]` (a back arrow to For You). We point every
+  `a[href="/"]` at the Following URL and make the title inert. A JS redirect
+  (rate-limited: 4 s cooldown, 4/min) is the fallback.
+- Nav entries are `a[href="/reels/"]`, `a[href="/explore/"]`, `a[href="/direct/inbox/"]`,
+  each wrapped in single-child divs. `svg[aria-label]` names them (Home, Explore,
+  Reels, Messages, Notifications, New post). Bottom bar on phone, left rail on desktop.
+- DM badge: `div[aria-label^="Direct messaging - N new notifications"]` plus a numeric span.
+- Stories tray items: `div[role=button][aria-label^="Story by <user>, (not )seen"]`;
+  the list is a `<ul>` on desktop and a plain `<div>` with ~10 children on phone.
+- Feed posts are `<article>`; the post link is `/p/<code>/` (profiles use
+  `/<user>/p/<code>/` and `/<user>/reel/<code>/`); `<time datetime>` is inside it.
+  **The feed is virtualised** — only 1–3 articles exist in the DOM at once.
+- Instagram's own "You're all caught up" divider sits in the feed container as a
+  non-article sibling; a "Suggested Posts" `<h3>` and suggested articles follow it.
+- `/reel/<code>/` client-redirects to `/reels/<code>/`: the same snap-scrolling
+  viewer as the Reels tab (`scroll-snap-type: y mandatory`, two slides loaded,
+  `div[role=toolbar][aria-label="Reels navigation controls"]` with
+  "Navigate to next/previous Reel"). Native policy blocks exactly `/reels/` and
+  `/reels/audio/…`; `/reels/<code>/` is allowed and pinned to one slide.
+- `/explore/` grid tiles are `a[href^="/p/"]`; the search input is
+  `input[aria-label="Search input"]`. Tapping it on phone navigates to
+  `/explore/search/`. Hiding the grid alone left the infinite-scroll sentinel
+  visible, so Instagram kept fetching pages that flashed before the observer hid
+  them. Now: everything in `main` except the search box's ancestor chain is marked
+  and hidden by route-scoped CSS (`html[data-gramini-route="explore"]`), and the
+  remaining box is centred.
+- Layout: the web view lives **inside** the safe area with
+  `contentInsetAdjustmentBehavior = .never`. Full-bleed + automatic insets made the
+  document 45 px taller than the viewport and WKWebView scrolled Instagram's fixed
+  search header under the status bar when the keyboard opened.
+- Debugging: DEBUG builds set `window.__graminiDebug`, `isInspectable`, and
+  filter.js posts a structural probe that `xcrun devicectl device process launch
+  --console` prints on the Mac. Nothing personal is included.
+
+Not yet verified on device: story no-advance, reel viewer lock, in-feed
+suggested/sponsored modules, activity page.
+
 ## Selector changes
 
 _(none yet)_
@@ -48,4 +90,5 @@ _(none yet)_
 
 | Date | Build | Result |
 |---|---|---|
-| 2026-09-21 | phase 1, simulator | Launches, landing + login page render, in-app navigation OK. Not yet run on device. |
+| 2026-09-21 | phase 1, simulator | Launches, landing + login page render, in-app navigation OK. |
+| 2026-09-21 | phase 2, iPhone 17 Pro | Login persists. Following feed, no Reels tab, no DM badge, Explore = search box only, search works, keyboard layout OK. |

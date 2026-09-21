@@ -10,8 +10,10 @@ struct RootView: View {
             Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
 
+            // Kept inside the safe area on purpose: with a full-bleed web view,
+            // WKWebView's automatic inset handling scrolls Instagram's fixed
+            // headers under the status bar whenever the keyboard opens.
             WebView(state: web)
-                .ignoresSafeArea()
 
             if let error = web.loadError {
                 LoadErrorView(message: error) {

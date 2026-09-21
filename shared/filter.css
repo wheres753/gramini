@@ -1,8 +1,49 @@
 /* Gramini filter stylesheet — injected at document start (iOS) / as a content
-   stylesheet (Chrome). Keep this to structural hooks; no obfuscated classes. */
+   stylesheet (Chrome). Structural hooks only; no obfuscated class names. */
 
-/* Anything filter.js decides to hide. */
+/* Elements filter.js decided to hide. */
 [data-gramini-hidden] {
+  display: none !important;
+}
+
+/* Visible but not tappable (the "Following" header title, which links back to For You). */
+[data-gramini-inert] {
+  pointer-events: none !important;
+}
+
+/* The single-reel viewer's snap-scrolling column: nothing to swipe to. */
+[data-gramini-lock] {
+  overflow: hidden !important;
+  scroll-snap-type: none !important;
+  overscroll-behavior: none !important;
+}
+
+/* Route-scoped rules (filter.js keeps data-gramini-route on <html>). These act
+   instantly, before the observer runs, so nothing flashes. */
+html[data-gramini-route="explore"] main a[href*="/p/"],
+html[data-gramini-route="explore"] main a[href*="/reel/"],
+html[data-gramini-route="explore"] main svg[aria-label="Loading..."],
+html[data-gramini-route="explore"] [data-gramini-explore-hide] {
+  display: none !important;
+}
+/* Explore with the grid gone: centre the search box on screen. */
+html[data-gramini-route="explore"] [data-gramini-explore] {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-height: 75vh !important;
+}
+html[data-gramini-route="explore"] [data-gramini-explore-keep] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+html[data-gramini-route="reel"] [role="toolbar"][aria-label*="Reels navigation"] {
+  display: none !important;
+}
+
+/* Fail closed even if the script breaks: the Reels tab is never visible. */
+a[href="/reels/"] {
   display: none !important;
 }
 

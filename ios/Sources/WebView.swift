@@ -44,10 +44,13 @@ struct WebView: UIViewRepresentable {
         webView.uiDelegate = controller
         webView.allowsBackForwardNavigationGestures = true   // edge swipe = back; no nav chrome
         webView.allowsLinkPreview = false
+        #if DEBUG
+        webView.isInspectable = true   // Safari ▸ Develop ▸ <iPhone> ▸ Gramini
+        #endif
         webView.isOpaque = true
         webView.backgroundColor = .systemBackground
         webView.underPageBackgroundColor = .systemBackground
-        webView.scrollView.contentInsetAdjustmentBehavior = .always
+        webView.scrollView.contentInsetAdjustmentBehavior = .never   // the SwiftUI layout handles safe areas
         webView.scrollView.bounces = true
 
         let refresh = UIRefreshControl()
@@ -105,6 +108,12 @@ final class WebViewController: NSObject {
     func makeUserContentController() -> WKUserContentController {
         let ucc = WKUserContentController()
 
+        #if DEBUG
+        // Lets filter.js post its structural probe (see `probe()` there).
+        ucc.addUserScript(WKUserScript(source: "window.__graminiDebug = true;",
+                                       injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        #endif
+
         if let css = bundledText("filter", ext: "css") {
             // Inject the stylesheet at document start so attention traps never flash.
             let js = """
@@ -141,6 +150,15 @@ final class WebViewController: NSObject {
 
     // MARK: Domain policy
 
+    /// Attention-trap routes that never load, even if filter.js is broken:
+    /// the Reels tab and its audio pages. A single reel (`/reels/<code>/`) is
+    /// fine — filter.js pins the viewer to that one reel.
+    static func isBlockedRoute(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased(), host == "instagram.com" || host.hasSuffix(".instagram.com") else { return false }
+        let path = url.path.hasSuffix("/") ? url.path : url.path + "/"
+        return path == "/reels/" || path.hasPrefix("/reels/audio/")
+    }
+
     static func isAllowed(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
               let host = url.host?.lowercased() else { return false }
@@ -172,6 +190,11 @@ extension WebViewController: WKNavigationDelegate {
 
         if url.host?.lowercased() == "l.instagram.com" {
             openExternally(url)
+            return .cancel
+        }
+
+        if Self.isBlockedRoute(url) {
+            loadHome()
             return .cancel
         }
 
@@ -264,6 +287,10 @@ extension WebViewController: WKScriptMessageHandler {
         case "log":
             #if DEBUG
             print("[filter.js] \(body["message"] ?? "")")
+            #endif
+        case "probe":
+            #if DEBUG
+            print("[probe] \(body["data"] ?? "")")
             #endif
         default:
             break
