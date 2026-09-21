@@ -1,0 +1,55 @@
+name: Gramini
+options:
+  bundleIdPrefix: com.wheres753
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.5"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: YOURTEAMID
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    # Xcode Cloud sets CI_BUILD_NUMBER; local builds fall back to 1.
+    CURRENT_PROJECT_VERSION: "$(CI_BUILD_NUMBER:default=1)"
+targets:
+  Gramini:
+    type: application
+    platform: iOS
+    sources:
+      - path: ios/Sources
+      - path: shared
+        buildPhase: resources
+    info:
+      path: ios/Info.plist
+      properties:
+        CFBundleDisplayName: Gramini
+        CFBundleName: Gramini
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        NSPhotoLibraryUsageDescription: Gramini needs photo library access so you can choose photos and videos to post on Instagram.
+        NSCameraUsageDescription: Gramini needs camera access so you can take a photo or video to post on Instagram.
+        NSMicrophoneUsageDescription: Gramini needs microphone access when recording a video to post on Instagram.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wheres753.gramini
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        ENABLE_USER_SCRIPT_SANDBOXING: true
+schemes:
+  Gramini:
+    build:
+      targets:
+        Gramini: all
+    run:
+      config: Debug
+    archive:
+      config: Release

@@ -1,0 +1,15 @@
+/* Gramini filter stylesheet — injected at document start (iOS) / as a content
+   stylesheet (Chrome). Keep this to structural hooks; no obfuscated classes. */
+
+/* Anything filter.js decides to hide. */
+[data-gramini-hidden] {
+  display: none !important;
+}
+
+/* App-store / deep-link prompts that can be matched without JS. */
+a[href*="apps.apple.com"],
+a[href*="itunes.apple.com"],
+a[href*="play.google.com"],
+a[href^="instagram://"] {
+  display: none !important;
+}
