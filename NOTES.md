@@ -75,8 +75,24 @@ Structure observed (desktop Chrome, logged in; phone via the DEBUG probe):
   filter.js posts a structural probe that `xcrun devicectl device process launch
   --console` prints on the Mac. Nothing personal is included.
 
-Not yet verified on device: story no-advance, reel viewer lock, in-feed
-suggested/sponsored modules, activity page.
+Verified on device: story ends and returns to the profile; single reel plays
+without advancing; Explore search works. Not yet seen in testing: an in-feed
+"Suggested for you" module or a Sponsored post; the activity page.
+
+## Phase 3 — seen posts (2026-09-21)
+
+- The phone feed is **not** virtualised (89 articles were in the DOM after
+  Instagram fetched extra pages); desktop is. The logic handles both by keeping
+  the set of codes that appeared before the stop and hiding everything else.
+- Instagram's infinite-scroll loader (`svg[aria-label="Loading..."]` inside a
+  `div[role=progressbar]`) sits **outside** the feed container. Hiding the
+  after-stop articles alone left it visible, so more pages kept loading (spinner at
+  the bottom). Its single-child wrapper is now hidden once the feed stops.
+- Some post links carry 39-character codes (seen in the Following feed); the
+  shortcode regex allows up to 64 chars and the native store validates the same.
+- The seen list is published via a document-start user script that is rebuilt
+  before every main-frame navigation (`refreshUserScripts()`), so a pull to
+  refresh sees the posts from the previous page load.
 
 ## Selector changes
 
@@ -91,4 +107,5 @@ _(none yet)_
 | Date | Build | Result |
 |---|---|---|
 | 2026-09-21 | phase 1, simulator | Launches, landing + login page render, in-app navigation OK. |
-| 2026-09-21 | phase 2, iPhone 17 Pro | Login persists. Following feed, no Reels tab, no DM badge, Explore = search box only, search works, keyboard layout OK. |
+| 2026-09-21 | phase 2, iPhone 17 Pro | Login persists. Following feed, no Reels tab, no DM badge, Explore = search box only, search works, keyboard layout OK. Story stops at end; reel viewer pinned. |
+| 2026-09-21 | phase 3, iPhone 17 Pro | Safety cap at 40 posts on fresh store; after relaunch the feed stopped at the first seen post with the end card and no spinner. |

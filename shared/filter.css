@@ -54,3 +54,21 @@ a[href*="play.google.com"],
 a[href^="instagram://"] {
   display: none !important;
 }
+
+/* End card appended to the feed once it stops at a seen post. */
+.gramini-endcard {
+  padding: 56px 24px 120px;
+  text-align: center;
+  color: #737373;
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+.gramini-endcard b {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  .gramini-endcard { color: #a8a8a8; }
+}

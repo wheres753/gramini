@@ -59,6 +59,19 @@
       redirectMaxPerMinute: 4,
     },
 
+    seen: {
+      visibleFraction: 0.6,    // a post counts as seen once this much of it…
+      dwellMs: 1500,           // …has been on screen for this long
+      maxAgeDays: 3,           // safety cap: stop at the first post older than this…
+      maxPosts: 40,            // …or after this many posts, whichever comes first
+      capacity: 2000,          // codes kept (Chrome; native enforces the same on iOS)
+      // Instagram's infinite-scroll spinner; hidden once the feed has stopped so
+      // no further pages are requested.
+      loader: 'svg[aria-label="Loading..."]',
+      endCardTitle: "You're caught up.",
+      endCardBody: 'New posts from people you follow will show up above.',
+    },
+
     nav: {
       // Navigation entries removed entirely.
       hideLinks: ['a[href="/reels/"]'],
@@ -315,6 +328,163 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Seen posts — storage is native on iOS (WKScriptMessageHandler) and
+  // chrome.storage.local on desktop. `initial` is the set known when the page
+  // loaded; only those stop the feed. Posts seen during this page load go to
+  // `added` and are persisted for next time.
+  // ---------------------------------------------------------------------------
+  const Seen = {
+    loaded: false,
+    initial: new Set(),
+    added: new Set(),
+    load(done) {
+      if (isChrome) {
+        try {
+          chrome.storage.local.get({ seen: [] }, r => {
+            (r && r.seen || []).forEach(c => this.initial.add(c));
+            this.loaded = true; done();
+          });
+          return;
+        } catch (_) {}
+      }
+      (window.__graminiSeen || []).forEach(c => this.initial.add(c));
+      this.loaded = true; done();
+    },
+    has(code) { return this.initial.has(code); },
+    add(code) {
+      if (this.initial.has(code) || this.added.has(code)) return;
+      this.added.add(code);
+      if (isIOS) { post({ type: 'seen', code }); return; }
+      if (isChrome) {
+        try {
+          chrome.storage.local.get({ seen: [] }, r => {
+            const list = (r && r.seen || []).filter(c => c !== code);
+            list.push(code);
+            chrome.storage.local.set({ seen: list.slice(-CONFIG.seen.capacity) });
+          });
+        } catch (_) {}
+      }
+    },
+  };
+
+  // Per-page-load feed state. A reload (pull to refresh, relaunch) resets it;
+  // moving to a profile and back does not, so the feed you left is still there.
+  const feed = {
+    order: [],            // shortcodes in feed order, up to the stop point
+    stopped: false,
+    stopReason: null,
+    allowed: new Set(),   // codes that may stay visible once stopped
+    endCard: null,
+    io: null,
+    timers: new Map(),
+  };
+
+  function codeOf(article) {
+    if (article.dataset.graminiCode) return article.dataset.graminiCode;
+    const links = article.querySelectorAll('a[href*="/p/"], a[href*="/reel/"], a[href*="/reels/"]');
+    for (const a of links) {
+      const code = shortcodeFromHref(a.getAttribute('href'));
+      if (code) { article.dataset.graminiCode = code; return code; }
+    }
+    return null;
+  }
+
+  function ageDays(article) {
+    const t = article.querySelector('time[datetime]');
+    if (!t) return null;
+    const ms = Date.parse(t.getAttribute('datetime'));
+    return isNaN(ms) ? null : (Date.now() - ms) / 86400000;
+  }
+
+  function ensureIO() {
+    if (feed.io || typeof IntersectionObserver === 'undefined') return;
+    feed.io = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        const art = e.target;
+        const code = codeOf(art);
+        if (!code) continue;
+        const visible = e.isIntersecting && e.intersectionRatio >= CONFIG.seen.visibleFraction;
+        if (visible && !feed.timers.has(art)) {
+          feed.timers.set(art, setTimeout(() => {
+            feed.timers.delete(art);
+            if (art.isConnected && !art.hasAttribute(CONFIG.hiddenAttr)) Seen.add(code);
+          }, CONFIG.seen.dwellMs));
+        } else if (!visible && feed.timers.has(art)) {
+          clearTimeout(feed.timers.get(art));
+          feed.timers.delete(art);
+        }
+      }
+    }, { threshold: [0, CONFIG.seen.visibleFraction] });
+  }
+
+  function makeEndCard() {
+    const card = document.createElement('div');
+    card.className = 'gramini-endcard';
+    const b = document.createElement('b'); b.textContent = CONFIG.seen.endCardTitle;
+    const p = document.createElement('span'); p.textContent = CONFIG.seen.endCardBody;
+    card.append(b, p);
+    return card;
+  }
+
+  function applySeenFeed() {
+    if (!CONFIG.routes.home.test(location.pathname) || !Seen.loaded) return;
+    const articles = Array.from(document.querySelectorAll('article'));
+    if (!articles.length) return;
+    ensureIO();
+    const cfg = CONFIG.seen;
+
+    for (const art of articles) {
+      const code = codeOf(art);
+      if (!code) continue;                              // not rendered yet; next pass
+
+      if (!feed.stopped && !feed.order.includes(code)) {
+        let reason = null;
+        if (Seen.has(code)) reason = 'seen';
+        else if (feed.order.length >= cfg.maxPosts) reason = 'cap';
+        else { const d = ageDays(art); if (d !== null && d > cfg.maxAgeDays) reason = 'old'; }
+        if (reason) {
+          feed.stopped = true;
+          feed.stopReason = reason;
+          feed.allowed = new Set(feed.order);
+          log('feed stop (' + reason + ') at ' + code + ' after ' + feed.order.length + ' posts');
+        } else {
+          feed.order.push(code);
+        }
+      }
+
+      if (feed.stopped && !feed.allowed.has(code)) {
+        hide(art, 'after-stop');
+      } else if (!art.dataset.graminiObs && feed.io) {
+        art.dataset.graminiObs = '1';
+        feed.io.observe(art);
+      }
+    }
+
+    if (!feed.stopped) return;
+
+    // Everything in the feed container that is not an allowed post goes:
+    // hidden posts, Instagram's loader/sentinel (so it stops fetching), and any
+    // suggested modules. Headers come before the first post and are left alone.
+    const container = articles[0].parentElement;
+    if (!container) return;
+    let pastFirst = false;
+    for (const child of Array.from(container.children)) {
+      if (child.tagName === 'ARTICLE') { pastFirst = true; continue; }
+      if (child === feed.endCard) continue;
+      if (pastFirst && !hasProtected(child)) hide(child, 'after-stop');
+    }
+    if (!feed.endCard) feed.endCard = makeEndCard();
+    if (feed.endCard.parentElement !== container) container.appendChild(feed.endCard);
+
+    // The loader may live outside the feed container. Hide its wrapper chain.
+    document.querySelectorAll(cfg.loader).forEach(svg => {
+      if (svg.closest('[' + CONFIG.hiddenAttr + ']')) return;
+      const wrap = navItem(svg);
+      if (!hasProtected(wrap) && !wrap.querySelector('article')) hide(wrap, 'loader');
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Rules
   // ---------------------------------------------------------------------------
   function applyNav() {
@@ -458,7 +628,7 @@
 
   function applyAll() {
     checkRoute();
-    const rules = [applyNav, applyFeed, applySuggested, applyExplore, applyReelViewer, applyOpenInApp];
+    const rules = [applyNav, applyFeed, applySeenFeed, applySuggested, applyExplore, applyReelViewer, applyOpenInApp];
     for (const rule of rules) {
       try { rule(); } catch (e) { log(rule.name + ': ' + e); }
     }
@@ -485,6 +655,9 @@
     out.header = leaves(document, 'span,div,h1,h2').filter(l => /^(Following|For you|Home|Instagram)$/.test(textOf(l))).map(l => textOf(l) + ': ' + up(l, 5));
     out.stories = Array.from(document.querySelectorAll(CONFIG.stories.items)).slice(0, 1).map(s => up(s, 7));
     out.articles = document.querySelectorAll('article').length;
+    out.feed = { known: Seen.initial.size, added: Seen.added.size, order: feed.order.length, stopped: feed.stopReason };
+    const ld = document.querySelector(CONFIG.seen.loader);
+    if (ld) out.loader = up(ld, 8);
     out.hidden = Array.from(document.querySelectorAll('[' + CONFIG.hiddenAttr + ']')).map(e => {
       const why = e.getAttribute(CONFIG.hiddenAttr);
       return why + ':' + e.tagName.toLowerCase() + (why === 'open-in-app' ? '(' + short(e.textContent) + ')' : '');
@@ -522,7 +695,7 @@
   });
 
   function start() {
-    applyAll();
+    Seen.load(() => applyAll());
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('popstate', () => { checkRoute(); applyAll(); });
     scheduleProbe();

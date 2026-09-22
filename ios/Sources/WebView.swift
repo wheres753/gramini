@@ -71,7 +71,9 @@ struct WebView: UIViewRepresentable {
 @MainActor
 final class WebViewController: NSObject {
     private let state: WebViewState
+    let seen = SeenStore()
     weak var webView: WKWebView?
+    private weak var userContentController: WKUserContentController?
 
     /// Hosts that are allowed to load inside the app. Anything else opens in
     /// Safari. Suffix match, so `instagram.com` also covers `www.instagram.com`.
@@ -107,12 +109,30 @@ final class WebViewController: NSObject {
 
     func makeUserContentController() -> WKUserContentController {
         let ucc = WKUserContentController()
+        userContentController = ucc
+        installUserScripts(in: ucc)
+        ucc.add(self, name: "gramini")
+        return ucc
+    }
 
+    /// User scripts are fixed per page load, so the seen list is re-published
+    /// before every main-frame navigation (see `decidePolicyFor`).
+    func refreshUserScripts() {
+        guard let ucc = userContentController else { return }
+        ucc.removeAllUserScripts()
+        installUserScripts(in: ucc)
+    }
+
+    private func installUserScripts(in ucc: WKUserContentController) {
         #if DEBUG
         // Lets filter.js post its structural probe (see `probe()` there).
         ucc.addUserScript(WKUserScript(source: "window.__graminiDebug = true;",
                                        injectionTime: .atDocumentStart, forMainFrameOnly: false))
         #endif
+
+        // Seen shortcodes, so the feed can stop at the first already-seen post.
+        ucc.addUserScript(WKUserScript(source: seen.userScriptSource(),
+                                       injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         if let css = bundledText("filter", ext: "css") {
             // Inject the stylesheet at document start so attention traps never flash.
@@ -130,9 +150,6 @@ final class WebViewController: NSObject {
         if let js = bundledText("filter", ext: "js") {
             ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: false))
         }
-
-        ucc.add(self, name: "gramini")
-        return ucc
     }
 
     private func bundledText(_ name: String, ext: String) -> String? {
@@ -198,7 +215,10 @@ extension WebViewController: WKNavigationDelegate {
             return .cancel
         }
 
-        if Self.isAllowed(url) { return .allow }
+        if Self.isAllowed(url) {
+            refreshUserScripts()
+            return .allow
+        }
 
         // Anything else — other sites, mailto:, itms-apps:, custom schemes — leaves the app.
         openExternally(url)
@@ -280,7 +300,7 @@ extension WebViewController: WKUIDelegate {
 
 extension WebViewController: WKScriptMessageHandler {
     /// Bridge from `filter.js` (`window.webkit.messageHandlers.gramini.postMessage`).
-    /// Phase 1 only understands `log`; the seen-post store arrives in phase 3.
+    /// `log`/`probe` are DEBUG diagnostics; `seen` records a post shortcode.
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
@@ -292,6 +312,8 @@ extension WebViewController: WKScriptMessageHandler {
             #if DEBUG
             print("[probe] \(body["data"] ?? "")")
             #endif
+        case "seen":
+            if let code = body["code"] as? String { seen.add(code) }
         default:
             break
         }
