@@ -114,6 +114,32 @@ without advancing; Explore search works. Not yet seen in testing: an in-feed
 - Verified in the simulator with a 150 s limit: banner at 2:00 left, lock at
   0:00, still locked after relaunch, readout on header long press.
 
+## Phase 5 — Chrome extension (2026-09-21)
+
+- MV3, content script on `https://www.instagram.com/*`, `storage` permission,
+  `all_frames`. `chrome/filter.{js,css}` are copies made by
+  `scripts/sync-filter.sh` (`--check` verifies they are current). Loaded unpacked.
+- Verified in Chrome: Following redirect, Reels rail entry gone, sidebar
+  "Suggested for you" gone (profile row and footer intact), DM badge gone, Explore
+  reduced to the search box. Seen posts go to `chrome.storage.local` (1 s timeout
+  → fail open if storage is unavailable).
+- Desktop limit: not included (spec §4).
+
+## Fixes from device testing (2026-09-21)
+
+- Instagram drops its tab bar on `/direct/inbox/` on phones. filter.js now draws
+  a four-link bar (Home → Following, Search, Messages, Profile) on
+  `/direct/inbox/` and `/direct/requests/` only — not in threads, where it would
+  cover the composer. Profile href is learned from Instagram's bar and kept in
+  `localStorage`. Lesson: the bar's own `a[href="/explore/"]` matched the probe
+  for Instagram's bar, causing an add/remove loop that flashed; the probe now
+  excludes `.gramini-nav`.
+- Posts flashed for ~150 ms before being hidden after the stop. On the home route
+  `article:not([data-gramini-ok])` is `visibility: hidden` until the seen rule
+  approves it; the observer also checks the route synchronously so the rule is in
+  place before an SPA transition renders the feed. Debounce lowered to 60 ms. If
+  the seen rule throws, every article is revealed (fail open).
+
 ## Selector changes
 
 _(none yet)_
@@ -128,5 +154,6 @@ _(none yet)_
 |---|---|---|
 | 2026-09-21 | phase 1, simulator | Launches, landing + login page render, in-app navigation OK. |
 | 2026-09-21 | phase 2, iPhone 17 Pro | Login persists. Following feed, no Reels tab, no DM badge, Explore = search box only, search works, keyboard layout OK. Story stops at end; reel viewer pinned. |
+| 2026-09-21 | phase 5, Chrome + iPhone | Extension loaded unpacked; desktop rules verified. Inbox tab bar and no-flash feed verified on device. |
 | 2026-09-21 | phase 4, simulator | 150 s limit: banner, lock screen, lock survives relaunch, header long-press readout. Midnight reset not yet observed. |
 | 2026-09-21 | phase 3, iPhone 17 Pro | Safety cap at 40 posts on fresh store; after relaunch the feed stopped at the first seen post with the end card and no spinner. |

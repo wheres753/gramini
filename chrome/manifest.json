@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Gramini",
+  "version": "1.0",
+  "description": "Instagram with the addictive parts removed. Personal use; loaded unpacked.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.instagram.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.instagram.com/*"],
+      "css": ["filter.css"],
+      "js": ["filter.js"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "128": "icon128.png"
+  }
+}

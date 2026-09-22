@@ -1,0 +1,119 @@
+/* Gramini filter stylesheet — injected at document start (iOS) / as a content
+   stylesheet (Chrome). Structural hooks only; no obfuscated class names. */
+
+/* Elements filter.js decided to hide. */
+[data-gramini-hidden] {
+  display: none !important;
+}
+
+/* Visible but not tappable (the "Following" header title, which links back to For You). */
+[data-gramini-inert] {
+  pointer-events: none !important;
+}
+
+/* The single-reel viewer's snap-scrolling column: nothing to swipe to. */
+[data-gramini-lock] {
+  overflow: hidden !important;
+  scroll-snap-type: none !important;
+  overscroll-behavior: none !important;
+}
+
+/* Feed posts stay invisible until filter.js has approved them, so posts that
+   will be hidden never flash. Layout is kept; only paint is suppressed. */
+html[data-gramini-route="home"] article:not([data-gramini-ok]) {
+  visibility: hidden !important;
+}
+
+/* Route-scoped rules (filter.js keeps data-gramini-route on <html>). These act
+   instantly, before the observer runs, so nothing flashes. */
+html[data-gramini-route="explore"] main a[href*="/p/"],
+html[data-gramini-route="explore"] main a[href*="/reel/"],
+html[data-gramini-route="explore"] main svg[aria-label="Loading..."],
+html[data-gramini-route="explore"] [data-gramini-explore-hide] {
+  display: none !important;
+}
+/* Explore with the grid gone: centre the search box on screen. */
+html[data-gramini-route="explore"] [data-gramini-explore] {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-height: 75vh !important;
+}
+html[data-gramini-route="explore"] [data-gramini-explore-keep] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+html[data-gramini-route="reel"] [role="toolbar"][aria-label*="Reels navigation"] {
+  display: none !important;
+}
+
+/* Fail closed even if the script breaks: the Reels tab is never visible. */
+a[href="/reels/"] {
+  display: none !important;
+}
+
+/* App-store / deep-link prompts that can be matched without JS. */
+a[href*="apps.apple.com"],
+a[href*="itunes.apple.com"],
+a[href*="play.google.com"],
+a[href^="instagram://"] {
+  display: none !important;
+}
+
+/* End card appended to the feed once it stops at a seen post. */
+.gramini-endcard {
+  padding: 56px 24px 120px;
+  text-align: center;
+  color: #737373;
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+.gramini-endcard b {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  .gramini-endcard { color: #a8a8a8; }
+}
+
+/* Our tab bar on the inbox, where Instagram drops its own on phones. */
+.gramini-nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 50px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #fff;
+  border-top: 1px solid #dbdbdb;
+  z-index: 2147483000;
+}
+.gramini-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 100%;
+  color: #000;
+}
+.gramini-nav svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gramini-nav a.is-current svg { stroke-width: 2.6; }
+html[data-gramini-route="direct"] main,
+html[data-gramini-route="direct"] [role="main"] {
+  padding-bottom: 50px !important;
+}
+@media (prefers-color-scheme: dark) {
+  .gramini-nav { background: #000; border-top-color: #262626; }
+  .gramini-nav a { color: #fff; }
+}

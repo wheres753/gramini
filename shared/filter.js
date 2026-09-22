@@ -19,12 +19,13 @@
   // CONFIG — the only place selectors and tunables live.
   // ---------------------------------------------------------------------------
   const CONFIG = {
-    observerDebounceMs: 150,
+    observerDebounceMs: 60,
 
     // Attributes stamped on elements; filter.css acts on them.
     hiddenAttr: 'data-gramini-hidden',   // display: none
     inertAttr:  'data-gramini-inert',    // pointer-events: none (visible, not tappable)
     lockAttr:   'data-gramini-lock',     // overflow hidden, no scroll snapping
+    okAttr:     'data-gramini-ok',       // feed post approved to show (see filter.css)
     routeAttr:  'data-gramini-route',    // on <html>: home | explore | explore-sub | reel | story | other
 
     // Where attention traps send you.
@@ -39,6 +40,9 @@
       storyViewer: /^\/stories\/([^/]+)\//,
       explore:     /^\/explore\/?$/,
       exploreSub:  /^\/explore\/./,        // tags, locations, search results
+      // Inbox and requests: Instagram drops its tab bar here on phones, so we
+      // draw our own (not in a thread, where it would cover the composer).
+      directList:  /^\/direct\/(inbox|requests)\/?$/,
     },
 
     // Shortcode extraction from post links: /p/<code>/, /reel/<code>/,
@@ -75,6 +79,20 @@
     nav: {
       // Navigation entries removed entirely.
       hideLinks: ['a[href="/reels/"]'],
+      // Instagram's own tab bar is considered present when this link is laid out.
+      barProbe: 'a[href="/explore/"]',
+      // Our replacement bar on the inbox. Profile href is learned from
+      // Instagram's bar and remembered in localStorage.
+      ownBar: [
+        { key: 'home',     href: '/?variant=following', label: 'Home',
+          d: 'M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z' },
+        { key: 'explore',  href: '/explore/',           label: 'Search',
+          d: 'M10.5 3a7.5 7.5 0 1 1 4.7 13.35L20.5 21.6M18 10.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0z' },
+        { key: 'messages', href: '/direct/inbox/',      label: 'Messages',
+          d: 'M21 3 3 10.5l7.5 3 3 7.5zM10.5 13.5 21 3' },
+        { key: 'profile',  href: null,                  label: 'Profile',
+          d: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-9a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm-6 6.5c1.5-2.5 3.5-3.5 6-3.5s4.5 1 6 3.5' },
+      ],
       // Links to "/" (the Home tab, the feed title's back arrow) are pointed at
       // the Following feed instead, so a tap never lands on For You.
       homeLinks: 'a[href="/"]',
@@ -312,6 +330,7 @@
     if (R.exploreSub.test(path)) return 'explore-sub';
     if (R.reelViewer.test(path)) return 'reel';
     if (R.storyViewer.test(path)) return 'story';
+    if (R.directList.test(path)) return 'direct';
     return 'other';
   }
 
@@ -340,10 +359,10 @@
     load(done) {
       if (isChrome) {
         try {
-          chrome.storage.local.get({ seen: [] }, r => {
-            (r && r.seen || []).forEach(c => this.initial.add(c));
-            this.loaded = true; done();
-          });
+          let finished = false;
+          const finish = list => { if (finished) return; finished = true; list.forEach(c => this.initial.add(c)); this.loaded = true; done(); };
+          chrome.storage.local.get({ seen: [] }, r => finish(r && r.seen || []));
+          setTimeout(() => finish([]), 1000);       // storage unavailable: fail open
           return;
         } catch (_) {}
       }
@@ -426,6 +445,11 @@
     return card;
   }
 
+  // Fail open: if the feed rule cannot run, show every post.
+  function revealAllArticles() {
+    document.querySelectorAll('article').forEach(a => a.setAttribute(CONFIG.okAttr, ''));
+  }
+
   function applySeenFeed() {
     if (!CONFIG.routes.home.test(location.pathname) || !Seen.loaded) return;
     const articles = Array.from(document.querySelectorAll('article'));
@@ -454,9 +478,12 @@
 
       if (feed.stopped && !feed.allowed.has(code)) {
         hide(art, 'after-stop');
-      } else if (!art.dataset.graminiObs && feed.io) {
-        art.dataset.graminiObs = '1';
-        feed.io.observe(art);
+      } else {
+        art.setAttribute(CONFIG.okAttr, '');
+        if (!art.dataset.graminiObs && feed.io) {
+          art.dataset.graminiObs = '1';
+          feed.io.observe(art);
+        }
       }
     }
 
@@ -501,6 +528,68 @@
         hide(el, 'dm-badge');
       }
     });
+  }
+
+  function profileHref() {
+    let href = null;
+    try { href = localStorage.getItem('gramini.profile'); } catch (_) {}
+    return href;
+  }
+
+  // Instagram's tab bar holds Home, Search, Messages and the profile link; the
+  // latter is the one whose href is a bare "/<username>/".
+  // Instagram's own tab-bar link, excluding the one in our bar.
+  function instagramBarLinks() {
+    return Array.from(document.querySelectorAll(CONFIG.nav.barProbe)).filter(a => !a.closest('.gramini-nav'));
+  }
+
+  function learnProfileHref() {
+    const probe = instagramBarLinks()[0];
+    if (!probe || probe.getBoundingClientRect().height === 0) return;
+    const bar = navItem(probe).parentElement;
+    if (!bar) return;
+    for (const a of bar.querySelectorAll('a[href]')) {
+      const h = a.getAttribute('href');
+      if (/^\/[A-Za-z0-9._]+\/$/.test(h) && !/^\/(explore|reels|direct|accounts|stories|p)\/$/.test(h)) {
+        try { localStorage.setItem('gramini.profile', h); } catch (_) {}
+        return;
+      }
+    }
+  }
+
+  let ownBar = null;
+  function applyOwnBar() {
+    if (!isTop) return;
+    const wanted = CONFIG.routes.directList.test(location.pathname) &&
+      !instagramBarLinks().some(a => a.getBoundingClientRect().height > 0);
+    if (!wanted) {
+      if (ownBar && ownBar.isConnected) ownBar.remove();
+      return;
+    }
+    if (!ownBar) {
+      ownBar = document.createElement('nav');
+      ownBar.className = 'gramini-nav';
+      ownBar.setAttribute('aria-label', 'Gramini navigation');
+      for (const item of CONFIG.nav.ownBar) {
+        const a = document.createElement('a');
+        a.dataset.key = item.key;
+        a.setAttribute('aria-label', item.label);
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', item.d);
+        svg.appendChild(path);
+        a.appendChild(svg);
+        ownBar.appendChild(a);
+      }
+    }
+    for (const a of ownBar.querySelectorAll('a')) {
+      const item = CONFIG.nav.ownBar.find(i => i.key === a.dataset.key);
+      const href = item.href || profileHref();
+      if (href) a.setAttribute('href', href); else a.removeAttribute('href');
+      a.classList.toggle('is-current', a.dataset.key === 'messages');
+    }
+    if (!ownBar.isConnected) document.body.appendChild(ownBar);
   }
 
   function applyFeed() {
@@ -628,9 +717,12 @@
 
   function applyAll() {
     checkRoute();
-    const rules = [applyNav, applyFeed, applySeenFeed, applySuggested, applyExplore, applyReelViewer, applyOpenInApp];
+    const rules = [applyNav, learnProfileHref, applyOwnBar, applyFeed, applySeenFeed, applySuggested, applyExplore, applyReelViewer, applyOpenInApp];
     for (const rule of rules) {
-      try { rule(); } catch (e) { log(rule.name + ': ' + e); }
+      try { rule(); } catch (e) {
+        log(rule.name + ': ' + e);
+        if (rule === applySeenFeed) revealAllArticles();
+      }
     }
   }
 
@@ -686,6 +778,7 @@
   // ---------------------------------------------------------------------------
   let pending = null;
   const observer = new MutationObserver(() => {
+    checkRoute();                        // cheap; keeps route-scoped CSS current
     if (pending) return;
     pending = setTimeout(() => {
       pending = null;

@@ -18,6 +18,12 @@
   overscroll-behavior: none !important;
 }
 
+/* Feed posts stay invisible until filter.js has approved them, so posts that
+   will be hidden never flash. Layout is kept; only paint is suppressed. */
+html[data-gramini-route="home"] article:not([data-gramini-ok]) {
+  visibility: hidden !important;
+}
+
 /* Route-scoped rules (filter.js keeps data-gramini-route on <html>). These act
    instantly, before the observer runs, so nothing flashes. */
 html[data-gramini-route="explore"] main a[href*="/p/"],
@@ -71,4 +77,43 @@ a[href^="instagram://"] {
 }
 @media (prefers-color-scheme: dark) {
   .gramini-endcard { color: #a8a8a8; }
+}
+
+/* Our tab bar on the inbox, where Instagram drops its own on phones. */
+.gramini-nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 50px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #fff;
+  border-top: 1px solid #dbdbdb;
+  z-index: 2147483000;
+}
+.gramini-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 100%;
+  color: #000;
+}
+.gramini-nav svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gramini-nav a.is-current svg { stroke-width: 2.6; }
+html[data-gramini-route="direct"] main,
+html[data-gramini-route="direct"] [role="main"] {
+  padding-bottom: 50px !important;
+}
+@media (prefers-color-scheme: dark) {
+  .gramini-nav { background: #000; border-top-color: #262626; }
+  .gramini-nav a { color: #fff; }
 }
