@@ -175,6 +175,13 @@ navigator's Cloud tab.
    replaces it, and the login lives in the shared website data store either way —
    but the seen list and usage tally are per-install, so expect a fresh start).
 
+## Icon change (2026-09-21)
+
+Sam preferred a figure over the "g" from spec §6. `tools/gen_icon.py` now draws an
+original striding/leaping figure in forest green on cream, no sun. It is built
+from thick rounded strokes only and deliberately shares no pose, proportions or
+detail with any brand's running-figure mark. Spec §6 still describes the "g".
+
 ## Selector changes
 
 _(none yet)_

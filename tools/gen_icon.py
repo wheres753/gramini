@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate the Gramini app icon (1024x1024 PNG, no alpha).
 
-An original mark: a bold rounded lowercase "g" in dark forest green on a warm
-cream background, with a small solid half-sun sitting on the g's baseline.
-Everything is drawn geometrically (no fonts, no external artwork).
+An original mark: a bold striding figure — mid-run, leaning into the hill —
+in dark forest green on warm cream. Drawn geometrically from thick rounded
+strokes (no fonts, no external artwork, no reference to any existing logo).
 
 Usage:
     python3 -m venv tools/.venv && tools/.venv/bin/pip install pillow
@@ -11,104 +11,64 @@ Usage:
 """
 from pathlib import Path
 
-import math
+from PIL import Image, ImageDraw
 
-from PIL import Image, ImageChops, ImageDraw
-
-OUT = Path(__file__).resolve().parents[1] / "ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+CHROME_OUT = ROOT / "chrome/icon128.png"
 
 SIZE = 1024
 SUPER = 4  # draw at 4x and downsample for smooth edges
 
 CREAM = (244, 235, 215)
 FOREST = (30, 74, 56)
-SUN = (212, 130, 59)
 
 
 def main() -> None:
     S = SIZE * SUPER
     img = Image.new("RGB", (S, S), CREAM)
+    d = ImageDraw.Draw(img)
 
     def px(v: float) -> float:
         return v * SUPER
 
-    # --- geometry (in 1024-space) -------------------------------------------
-    stroke = 112
-    r_bowl = 188
-    bowl_cx, bowl_cy = 420, 448
-    stem_x = bowl_cx + r_bowl              # stem hugs the bowl's right edge
-    stem_top = 318
-    baseline = bowl_cy + r_bowl + stroke / 2   # outer bottom of the bowl
-    r_hook = 156
-    hook_cy = baseline - 2                 # hook grows straight out of the bowl
-    hook_cx = stem_x - r_hook              # arc's right end sits under the stem
-    hook_end_deg = 145                     # where the descender stops (0 = 3 o'clock, clockwise)
+    def dot(p, r):
+        d.ellipse([px(p[0] - r), px(p[1] - r), px(p[0] + r), px(p[1] + r)], fill=FOREST)
 
-    # Shapes are built as masks and composited, because PIL's wide `arc`
-    # leaves seams at the joins.
-    def new_mask():
-        return Image.new("L", (S, S), 0)
+    def limb(points, width):
+        """Polyline with round joints and caps."""
+        for a, b in zip(points, points[1:]):
+            d.line([px(a[0]), px(a[1]), px(b[0]), px(b[1])], fill=FOREST, width=int(px(width)))
+        for p in points:
+            dot(p, width / 2)
 
-    def ring_mask(cx, cy, r, width):
-        m = new_mask()
-        d = ImageDraw.Draw(m)
-        ro, ri = r + width / 2, r - width / 2
-        d.ellipse([px(cx - ro), px(cy - ro), px(cx + ro), px(cy + ro)], fill=255)
-        d.ellipse([px(cx - ri), px(cy - ri), px(cx + ri), px(cy + ri)], fill=0)
-        return m
+    # --- figure (1024-space) -------------------------------------------------
+    w = 88                      # limb thickness
+    head_c, head_r = (612, 236), 74
+    shoulder = (560, 350)
+    hip = (462, 566)
 
-    def dot_mask(cx, cy, r):
-        m = new_mask()
-        ImageDraw.Draw(m).ellipse([px(cx - r), px(cy - r), px(cx + r), px(cy + r)], fill=255)
-        return m
-
-    def bar_mask(x, y0, y1, width):
-        m = new_mask()
-        ImageDraw.Draw(m).rectangle([px(x - width / 2), px(y0), px(x + width / 2), px(y1)], fill=255)
-        return m
-
-    def wedge_mask(cx, cy, r, start, end):
-        m = new_mask()
-        ImageDraw.Draw(m).pieslice([px(cx - r), px(cy - r), px(cx + r), px(cy + r)],
-                                   start=start, end=end, fill=255)
-        return m
-
-    g = new_mask()
-    # bowl
-    g = ImageChops.lighter(g, ring_mask(bowl_cx, bowl_cy, r_bowl, stroke))
-    # stem with rounded top cap
-    g = ImageChops.lighter(g, bar_mask(stem_x, stem_top, hook_cy, stroke))
-    g = ImageChops.lighter(g, dot_mask(stem_x, stem_top, stroke / 2))
-    # descender: part of a ring, clipped to a wedge, with a rounded end
-    hook = ImageChops.multiply(ring_mask(hook_cx, hook_cy, r_hook, stroke),
-                               wedge_mask(hook_cx, hook_cy, r_hook + stroke, 0, hook_end_deg))
-    g = ImageChops.lighter(g, hook)
-    end_x = hook_cx + r_hook * math.cos(math.radians(hook_end_deg))
-    end_y = hook_cy + r_hook * math.sin(math.radians(hook_end_deg))
-    g = ImageChops.lighter(g, dot_mask(end_x, end_y, stroke / 2))
-
-    img.paste(FOREST, mask=g)
-
-    # half-sun sitting on the baseline, to the right of the stem
-    sun_r = 84
-    sun_cx = stem_x + stroke / 2 + 30 + sun_r
-    sun = wedge_mask(sun_cx, baseline, sun_r, 180, 360)
-    img.paste(SUN, mask=sun)
+    limb([shoulder, hip], 104)                              # torso, a little heavier
+    limb([(590, 300), shoulder], 70)                        # neck
+    limb([shoulder, (692, 392), (760, 262)], w)             # front arm, reaching up the slope
+    limb([shoulder, (430, 400), (348, 300)], w)             # back arm, bent and swung back
+    limb([hip, (606, 626), (650, 796)], w)                  # front leg, planting
+    limb([hip, (356, 664), (232, 748)], w)                  # back leg, kicking out
+    dot(head_c, head_r)
 
     # --- centre the composition ---------------------------------------------
-    left = bowl_cx - r_bowl - stroke / 2
-    right = sun_cx + sun_r
-    top = min(stem_top - stroke / 2, bowl_cy - r_bowl - stroke / 2)
-    bottom = hook_cy + r_hook + stroke / 2
-    dx = (SIZE - (left + right)) / 2
-    dy = (SIZE - (top + bottom)) / 2
+    xs = [232 - w / 2, 760 + w / 2]
+    ys = [head_c[1] - head_r, 796 + w / 2]
+    dx = (SIZE - (xs[0] + xs[1])) / 2
+    dy = (SIZE - (ys[0] + ys[1])) / 2
     img = img.transform(img.size, Image.AFFINE, (1, 0, -px(dx), 0, 1, -px(dy)),
                         resample=Image.BICUBIC, fillcolor=CREAM)
 
     img = img.resize((SIZE, SIZE), Image.LANCZOS)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     img.save(OUT, "PNG", optimize=True)
-    print(f"wrote {OUT}")
+    img.resize((128, 128), Image.LANCZOS).save(CHROME_OUT, "PNG", optimize=True)
+    print(f"wrote {OUT} and {CHROME_OUT}")
 
 
 if __name__ == "__main__":
