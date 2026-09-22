@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit.UIGestureRecognizerSubclass
 import WebKit
 
 /// Observable state shared between the SwiftUI shell and the web view.
@@ -6,6 +7,8 @@ import WebKit
 @Observable
 final class WebViewState {
     var loadError: String?
+    /// Incremented on each long press on the page header.
+    var headerPressCount = 0
     /// Set by `WebView` once the underlying `WKWebView` exists.
     weak var controller: WebViewController?
 }
@@ -53,6 +56,14 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never   // the SwiftUI layout handles safe areas
         webView.scrollView.bounces = true
 
+        // Long press on the page header (Instagram's top bar) -> usage readout.
+        // Runs alongside the page's own touch handling; never cancels it.
+        let press = HeaderPressRecognizer(target: controller, action: #selector(WebViewController.handleHeaderPress(_:)))
+        press.minimumPressDuration = 0.6
+        press.cancelsTouchesInView = false
+        press.delegate = controller
+        webView.addGestureRecognizer(press)
+
         let refresh = UIRefreshControl()
         refresh.addTarget(controller, action: #selector(WebViewController.handleRefresh), for: .valueChanged)
         webView.scrollView.refreshControl = refresh
@@ -94,6 +105,18 @@ final class WebViewController: NSObject {
 
     func loadHome() {
         webView?.load(URLRequest(url: WebView.homeURL))
+    }
+
+    /// Height of the page region that counts as the header, in points.
+    static let headerHeight: CGFloat = 60
+
+    @objc func handleHeaderPress(_ gr: UILongPressGestureRecognizer) {
+        if gr.state == .began {
+            state.headerPressCount += 1
+            #if DEBUG
+            print("[gramini] header long press")
+            #endif
+        }
     }
 
     @objc func handleRefresh() {
@@ -195,6 +218,32 @@ final class WebViewController: NSObject {
     private func openExternally(_ url: URL) {
         let target = Self.unwrappedExternalURL(url)
         UIApplication.shared.open(target)
+    }
+}
+
+/// Long press limited to the page header. Fails at touch-down anywhere else so
+/// it never delays scrolling or taps in the page body.
+final class HeaderPressRecognizer: UILongPressGestureRecognizer {
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        super.touchesBegan(touches, with: event)
+        if let view, let touch = touches.first,
+           touch.location(in: view).y > WebViewController.headerHeight {
+            state = .failed
+        }
+    }
+}
+
+extension WebViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
+    }
+
+    /// WebKit's own long press (text selection, callout) waits for ours inside
+    /// the header, so a header press shows the readout instead of selecting text.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+        other is UILongPressGestureRecognizer
     }
 }
 

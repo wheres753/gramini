@@ -94,6 +94,26 @@ without advancing; Explore search works. Not yet seen in testing: an in-feed
   before every main-frame navigation (`refreshUserScripts()`), so a pull to
   refresh sees the posts from the previous page load.
 
+## Phase 4 — daily limit (2026-09-21)
+
+- `UsageLimiter` counts only while the scene phase is `.active`; the running
+  session is folded into `usedToday` on resign, persisted every 5 s and on every
+  phase change (`usage.date` / `usage.seconds` in UserDefaults, local-date key).
+  Midnight rollover is checked on every tick, so the lock screen releases itself.
+- Spec §10 Q2 answered by default: after the limit **everything** is locked (the
+  web view is removed from the hierarchy). Change `RootView` if "post only" is
+  wanted later.
+- Banner: last 2 minutes, top capsule, `allowsHitTesting(false)`.
+- Readout: long press on the top 60 pt of the web view (Instagram's header).
+  A SwiftUI strip over the status bar never receives touches, and a plain
+  `UILongPressGestureRecognizer` loses to WebKit's text-selection press, so
+  `HeaderPressRecognizer` fails at touch-down outside the header and WebKit's
+  long-press recognizers are required to wait for it inside.
+- DEBUG launch arguments: `-GraminiLimitSeconds 150` shortens the limit,
+  `-GraminiResetUsage YES` clears today's tally.
+- Verified in the simulator with a 150 s limit: banner at 2:00 left, lock at
+  0:00, still locked after relaunch, readout on header long press.
+
 ## Selector changes
 
 _(none yet)_
@@ -108,4 +128,5 @@ _(none yet)_
 |---|---|---|
 | 2026-09-21 | phase 1, simulator | Launches, landing + login page render, in-app navigation OK. |
 | 2026-09-21 | phase 2, iPhone 17 Pro | Login persists. Following feed, no Reels tab, no DM badge, Explore = search box only, search works, keyboard layout OK. Story stops at end; reel viewer pinned. |
+| 2026-09-21 | phase 4, simulator | 150 s limit: banner, lock screen, lock survives relaunch, header long-press readout. Midnight reset not yet observed. |
 | 2026-09-21 | phase 3, iPhone 17 Pro | Safety cap at 40 posts on fresh store; after relaunch the feed stopped at the first seen post with the end card and no spinner. |
