@@ -140,6 +140,33 @@ without advancing; Explore search works. Not yet seen in testing: an in-feed
   place before an SPA transition renders the feed. Debounce lowered to 60 ms. If
   the seen rule throws, every article is revealed (fail open).
 
+## Phase 6 — Xcode Cloud (2026-09-21)
+
+Committed:
+- `ci_scripts/ci_post_clone.sh` — installs XcodeGen, stamps `CURRENT_PROJECT_VERSION`
+  with `CI_BUILD_NUMBER`, generates `Gramini.xcodeproj`, checks `chrome/` is in sync.
+- `.github/workflows/testflight.yml` — fallback, `workflow_dispatch` only until its
+  secrets exist (App Store Connect API key + Apple Distribution .p12). Enable the
+  cron there if Xcode Cloud ever stops being an option.
+- A local Release archive (`xcodebuild … archive`) succeeds with automatic signing.
+
+One-time setup in Xcode (needs the project open: `xcodegen generate && open Gramini.xcodeproj`):
+1. App Store Connect: register bundle ID `com.wheres753.gramini`, create the app,
+   TestFlight → Internal Testing → group with yourself.
+2. Xcode → Product → Xcode Cloud → Create Workflow… → product Gramini.
+3. Grant Xcode Cloud access to the GitHub repo `wheres753/gramini` when prompted.
+4. Workflow "Monthly TestFlight": Environment Xcode 26.x; Start Conditions =
+   Branch Changes on `main` **and** Scheduled (weekly, or the longest interval
+   ≤ 30 days offered); Actions = Archive iOS, deployment preparation
+   "TestFlight (Internal Testing Only)"; Post-Actions = TestFlight Internal
+   Testing → your group.
+5. Start the first build manually; check the log shows `ci_post_clone.sh`
+   installing XcodeGen and `CURRENT_PROJECT_VERSION: "<n>"`.
+6. On the phone, install TestFlight, accept the invite, install Gramini from it.
+   The Xcode-installed Debug build can then be deleted (same bundle ID; TestFlight
+   replaces it, and the login lives in the shared website data store either way —
+   but the seen list and usage tally are per-install, so expect a fresh start).
+
 ## Selector changes
 
 _(none yet)_
