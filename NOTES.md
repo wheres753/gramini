@@ -163,6 +163,14 @@ One-time setup in Xcode (needs the project open: `xcodegen generate && open Gram
 5. Start the first build manually; check the log shows `ci_post_clone.sh`
    installing XcodeGen and `CURRENT_PROJECT_VERSION: "<n>"`.
 6. On the phone, install TestFlight, accept the invite, install Gramini from it.
+
+Done 2026-09-21: workflow **Updater** — Branch Changes on `main` + weekly schedule
+(Sunday 00:00 America/Vancouver), Archive iOS with TestFlight (Internal Testing
+Only) preparation, post-action TestFlight Internal Testing → group `graminers`.
+Builds 1–2 (archive only) passed on Xcode Cloud (Xcode 27 image); Build 3 is the
+first with the TestFlight upload. In Xcode 26 the menu is **Integrate**, not
+Product; a workflow can also be edited by right-clicking it in the Report
+navigator's Cloud tab.
    The Xcode-installed Debug build can then be deleted (same bundle ID; TestFlight
    replaces it, and the login lives in the shared website data store either way —
    but the seen list and usage tally are per-install, so expect a fresh start).
