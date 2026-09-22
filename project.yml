@@ -1,6 +1,10 @@
+# ---------------------------------------------------------------------------
+# Running this yourself? Change these two values to your own Apple Developer
+# team and a bundle prefix you own, then `xcodegen generate`.
+# ---------------------------------------------------------------------------
 name: Gramini
 options:
-  bundleIdPrefix: com.wheres753
+  bundleIdPrefix: com.wheres753             # <- your reverse-DNS prefix
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26.5"
@@ -8,7 +12,7 @@ options:
   generateEmptyDirectories: true
 settings:
   base:
-    DEVELOPMENT_TEAM: YOURTEAMID
+    DEVELOPMENT_TEAM: YOURTEAMID            # <- your Team ID (developer.apple.com → Membership)
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
@@ -41,7 +45,7 @@ targets:
         NSMicrophoneUsageDescription: Gramini needs microphone access when recording a video to post on Instagram.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.wheres753.gramini
+        PRODUCT_BUNDLE_IDENTIFIER: com.wheres753.gramini   # <- prefix above + .gramini
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
