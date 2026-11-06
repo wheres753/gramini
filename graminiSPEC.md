@@ -13,10 +13,10 @@ A personal, private iPhone app (plus a matching Chrome extension) that shows Ins
 | iPhone | iPhone 17 Pro, iOS 26.6.2 |
 | Mac | MacBook Air M4, macOS 26.6.2 |
 | Xcode | 26.5 |
-| Apple Developer | Individual, Team ID `YOURTEAMID` (user is Account Holder) |
+| Apple Developer | Individual, Account Holder. Team ID comes from `GRAMINI_TEAM_ID` in the environment, not the repo |
 | Bundle ID | `com.wheres753.gramini` |
 | Tools installed | Homebrew 6.0.5, Claude Code 2.1.128, git 2.50.1 |
-| Source control | Private GitHub repo `gramini` |
+| Source control | GitHub repo `gramini` (public since 2026-11-06) |
 | Distribution | Internal TestFlight only (no beta review) |
 | Instagram account | Password login on Instagram's own page |
 | Desktop browser | Chrome |
