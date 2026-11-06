@@ -205,8 +205,14 @@ _(none yet)_
 
 2026-11-06: repo made public. The Apple Developer Team ID is no longer in
 `project.yml` — it comes from `GRAMINI_TEAM_ID` in the environment (see
-"Keep the build alive" in the README). **Action required on Xcode Cloud:** add
-`GRAMINI_TEAM_ID` as an environment variable on the **Updater** workflow, or its
-next build fails in `ci_post_clone.sh`. Git history was rewritten the same day to
-drop the Team ID and the old commit email, so every commit SHA before this point
+"Keep the build alive" in the README). `GRAMINI_TEAM_ID` is set as an
+environment variable on the **Updater** workflow; without it `ci_post_clone.sh`
+exits 1. Git history was rewritten the same day to drop the Team ID, the old
+commit email and the recorded 2FA state, so every commit SHA before this point
 changed; re-clone rather than pulling into an old checkout.
+
+Also found that day: Xcode Cloud had been silently idle since build 11
+(Oct 25) because the updated Apple Developer Program License Agreement needed
+accepting — the weekly schedule just stopped rather than failing. Accepted it,
+then build 12 (manual, commit 8ddf191) archived and signed clean in ~4 min, so
+the environment-variable setup is verified end to end.
