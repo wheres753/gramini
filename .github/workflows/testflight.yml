@@ -4,6 +4,8 @@
 # Required repository secrets:
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY   App Store Connect API key (.p8 contents)
 #   DIST_CERT_P12_BASE64, DIST_CERT_PASSWORD     Apple Distribution certificate
+#   DEVELOPMENT_TEAM                             Apple Developer Team ID
+#                                                (developer.apple.com -> Membership)
 name: TestFlight (fallback)
 
 on:
@@ -22,7 +24,15 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_26.app || ls /Applications | grep Xcode
 
       - name: Install XcodeGen and generate project
+        env:
+          # project.yml reads DEVELOPMENT_TEAM from the environment, so the Team
+          # ID lives in repository secrets rather than in the repo.
+          GRAMINI_TEAM_ID: ${{ secrets.DEVELOPMENT_TEAM }}
         run: |
+          if [ -z "$GRAMINI_TEAM_ID" ]; then
+            echo "error: the DEVELOPMENT_TEAM repository secret is not set." >&2
+            exit 1
+          fi
           brew install xcodegen
           sed -i '' "s/^\( *CURRENT_PROJECT_VERSION: \)\"[0-9]*\"/\1\"${GITHUB_RUN_NUMBER}\"/" project.yml
           xcodegen generate
@@ -64,7 +74,7 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
-            <key>teamID</key><string>YOURTEAMID</string>
+            <key>teamID</key><string>${{ secrets.DEVELOPMENT_TEAM }}</string>
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           PLIST

@@ -1,10 +1,16 @@
 # ---------------------------------------------------------------------------
-# Running this yourself? Change these two values to your own Apple Developer
-# team and a bundle prefix you own, then `xcodegen generate`.
+# Running this yourself?
+#   1. Change `bundleIdPrefix` below (and PRODUCT_BUNDLE_IDENTIFIER to match)
+#      to a reverse-DNS prefix you own.
+#   2. Export your Apple Developer Team ID, then generate:
+#        GRAMINI_TEAM_ID=YOURTEAMID xcodegen generate
+#      (developer.apple.com -> Membership). It is read from the environment so
+#      it stays out of the repo; if it is unset the signing settings come out
+#      as the literal "${GRAMINI_TEAM_ID}" and Xcode will fail to sign.
 # ---------------------------------------------------------------------------
 name: Gramini
 options:
-  bundleIdPrefix: com.wheres753             # <- your reverse-DNS prefix
+  bundleIdPrefix: com.wheres753             # <- a reverse-DNS prefix you own
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26.5"
@@ -12,7 +18,7 @@ options:
   generateEmptyDirectories: true
 settings:
   base:
-    DEVELOPMENT_TEAM: YOURTEAMID            # <- your Team ID (developer.apple.com → Membership)
+    DEVELOPMENT_TEAM: ${GRAMINI_TEAM_ID}    # <- from the environment, see header
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic

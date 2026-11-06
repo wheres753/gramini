@@ -5,6 +5,18 @@ set -eu
 
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
+# project.yml reads DEVELOPMENT_TEAM from the environment so the Team ID is not
+# in the repo. Set GRAMINI_TEAM_ID as an environment variable on the Xcode Cloud
+# workflow (App Store Connect -> Xcode Cloud -> Manage Workflows -> Environment
+# -> Environment Variables). Without it XcodeGen emits the literal
+# "${GRAMINI_TEAM_ID}" and the archive fails to sign with a confusing error, so
+# fail loudly here instead.
+if [ -z "${GRAMINI_TEAM_ID:-}" ]; then
+  echo "error: GRAMINI_TEAM_ID is not set." >&2
+  echo "       Add it as an environment variable on this Xcode Cloud workflow." >&2
+  exit 1
+fi
+
 echo "== Installing XcodeGen"
 brew install xcodegen
 

@@ -29,14 +29,19 @@ Not on the App Store and not meant to be. Run your own copy.
    ```bash
    brew install xcodegen
    ```
-2. Open `project.yml` and change the two marked values near the top:
-   `bundleIdPrefix` (a reverse-DNS prefix you own, e.g. `com.yourname`) and
-   `DEVELOPMENT_TEAM` (your Team ID from developer.apple.com → Membership).
-   Update `PRODUCT_BUNDLE_IDENTIFIER` to match.
-3. Generate and open the project:
+2. Open `project.yml` and change `bundleIdPrefix` near the top to a reverse-DNS
+   prefix you own (e.g. `com.yourname`), and `PRODUCT_BUNDLE_IDENTIFIER` to
+   match.
+3. Generate and open the project, passing your Apple Developer Team ID
+   (developer.apple.com → Membership). It is read from the environment rather
+   than committed, so export it in your shell profile if you don't want to
+   repeat it:
    ```bash
-   xcodegen generate && open Gramini.xcodeproj
+   GRAMINI_TEAM_ID=YOURTEAMID xcodegen generate && open Gramini.xcodeproj
    ```
+   Re-run this whenever you change `project.yml`. If `GRAMINI_TEAM_ID` is
+   unset, XcodeGen writes the literal `${GRAMINI_TEAM_ID}` into the project and
+   Xcode fails to sign.
 4. In Xcode: sign in (Xcode → Settings → Accounts), plug in the iPhone, pick
    it as the run destination, press ⌘R. On the phone, trust the developer
    certificate when asked (Settings → General → VPN & Device Management).
@@ -55,7 +60,10 @@ setup that re-uploads a build weekly and on every push to `main`:
    start conditions (branch `main` + a weekly schedule), the Archive action's
    distribution preparation to *TestFlight (Internal Testing Only)*, and a
    *TestFlight Internal Testing* post-action to your group.
-3. `ci_scripts/ci_post_clone.sh` installs XcodeGen and generates the project on
+3. Add `GRAMINI_TEAM_ID` (your Team ID) as an environment variable on the
+   workflow: App Store Connect → Xcode Cloud → Manage Workflows → Environment
+   → Environment Variables. The build fails fast without it.
+4. `ci_scripts/ci_post_clone.sh` installs XcodeGen and generates the project on
    the build machine; the build number comes from Xcode Cloud.
 
 A GitHub Actions fallback lives in `.github/workflows/testflight.yml`; it needs

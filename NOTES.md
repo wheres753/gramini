@@ -150,7 +150,7 @@ Committed:
   cron there if Xcode Cloud ever stops being an option.
 - A local Release archive (`xcodebuild … archive`) succeeds with automatic signing.
 
-One-time setup in Xcode (needs the project open: `xcodegen generate && open Gramini.xcodeproj`):
+One-time setup in Xcode (needs the project open: `GRAMINI_TEAM_ID=<team> xcodegen generate && open Gramini.xcodeproj`):
 1. App Store Connect: register bundle ID `com.wheres753.gramini`, create the app,
    TestFlight → Internal Testing → group with yourself.
 2. Xcode → Product → Xcode Cloud → Create Workflow… → product Gramini.
@@ -159,7 +159,10 @@ One-time setup in Xcode (needs the project open: `xcodegen generate && open Gram
    Branch Changes on `main` **and** Scheduled (weekly, or the longest interval
    ≤ 30 days offered); Actions = Archive iOS, deployment preparation
    "TestFlight (Internal Testing Only)"; Post-Actions = TestFlight Internal
-   Testing → your group.
+   Testing → your group. Under Environment → Environment Variables add
+   `GRAMINI_TEAM_ID` = your Team ID — `project.yml` reads
+   `DEVELOPMENT_TEAM` from the environment so the ID is not in the repo, and
+   `ci_post_clone.sh` exits 1 without it.
 5. Start the first build manually; check the log shows `ci_post_clone.sh`
    installing XcodeGen and `CURRENT_PROJECT_VERSION: "<n>"`.
 6. On the phone, install TestFlight, accept the invite, install Gramini from it.
@@ -199,3 +202,11 @@ _(none yet)_
 | 2026-09-21 | phase 5, Chrome + iPhone | Extension loaded unpacked; desktop rules verified. Inbox tab bar and no-flash feed verified on device. |
 | 2026-09-21 | phase 4, simulator | 150 s limit: banner, lock screen, lock survives relaunch, header long-press readout. Midnight reset not yet observed. |
 | 2026-09-21 | phase 3, iPhone 17 Pro | Safety cap at 40 posts on fresh store; after relaunch the feed stopped at the first seen post with the end card and no spinner. |
+
+2026-11-06: repo made public. The Apple Developer Team ID is no longer in
+`project.yml` — it comes from `GRAMINI_TEAM_ID` in the environment (see
+"Keep the build alive" in the README). **Action required on Xcode Cloud:** add
+`GRAMINI_TEAM_ID` as an environment variable on the **Updater** workflow, or its
+next build fails in `ci_post_clone.sh`. Git history was rewritten the same day to
+drop the Team ID and the old commit email, so every commit SHA before this point
+changed; re-clone rather than pulling into an old checkout.
